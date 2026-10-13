@@ -90,30 +90,31 @@
   </div>
 </div>
 
-<!-- Firebase SDK -->
+<!-- Firebase SDK (v13.0.0) -->
 <script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-app.js";
-  import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-auth.js";
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-app.js";
+  import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-auth.js";
 
-  // Replace with your Firebase Web project configuration
   const firebaseConfig = {
-    apiKey: "YOUR_FIREBASE_API_KEY",
-    authDomain: "your-project-id.firebaseapp.com",
-    projectId: "your-project-id",
+    apiKey: "AIzaSyCr8AY8BdCQa-AypF8uiilq6YGV20xRHto",
+    authDomain: "echo-system-90a99.firebaseapp.com",
+    projectId: "echo-system-90a99",
+    storageBucket: "echo-system-90a99.firebasestorage.app",
+    messagingSenderId: "869015591812",
+    appId: "1:869015591812:web:0da4c82affa21b0865dbd1",
+    measurementId: "G-MVFWXDSX0B"
   };
 
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
   const provider = new GoogleAuthProvider();
 
-  // If testing locally in your browser, leave as localhost:8000.
-  // Once deployed on GitHub Pages, use a free secure tunnel (like Cloudflare Tunnel / Ngrok) URL:
   const API_ENDPOINT = "http://localhost:8000";
 
   const logBox = document.getElementById("console");
   function appendLog(msg) {
     const timestamp = new Date().toLocaleTimeString();
-    logBox.textContent += `\n[${timestamp}]${msg}`;
+    logBox.textContent += `\n[${timestamp}] ${msg}`;
     logBox.scrollTop = logBox.scrollHeight;
   }
 
@@ -124,7 +125,21 @@
       document.getElementById("dashboard-panel").classList.remove("hidden");
       document.getElementById("user-name").innerText = user.displayName;
       document.getElementById("user-avatar").src = user.photoURL;
-      appendLog(`Authenticated as ${user.email}`); pollTelemetry(); } else { document.getElementById("auth-panel").classList.remove("hidden"); document.getElementById("dashboard-panel").classList.add("hidden"); } });  document.getElementById("login-btn").onclick = () => signInWithPopup(auth, provider); document.getElementById("logout-btn").onclick = () => signOut(auth);  // Poll Local Python FastAPI Backend async function pollTelemetry() { try { const res = await fetch(`${API_ENDPOINT}/status`);
+      appendLog(`Authenticated as ${user.email}`);
+      pollTelemetry();
+    } else {
+      document.getElementById("auth-panel").classList.remove("hidden");
+      document.getElementById("dashboard-panel").classList.add("hidden");
+    }
+  });
+
+  document.getElementById("login-btn").onclick = () => signInWithPopup(auth, provider);
+  document.getElementById("logout-btn").onclick = () => signOut(auth);
+
+  // Poll Local Python FastAPI Backend
+  async function pollTelemetry() {
+    try {
+      const res = await fetch(`${API_ENDPOINT}/status`);
       const data = await res.json();
       const badge = document.getElementById("gateway-status");
       badge.textContent = "Online (Localhost:8000)";
@@ -139,13 +154,16 @@
 
   // Trigger Hardware Action
   window.sendAction = async function(cmd) {
-    appendLog(`Sending command: ${cmd}`); try { const res = await fetch(`${API_ENDPOINT}/trigger_action?action=${cmd}`, { method: "POST" }); const data = await res.json(); appendLog(`Response: ${JSON.stringify(data)}`);
+    appendLog(`Sending command: ${cmd}`);
+    try {
+      const res = await fetch(`${API_ENDPOINT}/trigger_action?action=${cmd}`, { method: "POST" });
+      const data = await res.json();
+      appendLog(`Response: ${JSON.stringify(data)}`);
     } catch (err) {
       appendLog(`Error sending command: ${err.message}`);
     }
   };
 
-  // Poll status every 5 seconds
   setInterval(pollTelemetry, 5000);
 </script>
 
