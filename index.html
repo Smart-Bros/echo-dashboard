@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ECHO Command Center</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --card-bg: #161b22;
+      --border: #30363d;
+      --accent: #58a6ff;
+      --green: #238636;
+      --red: #da3633;
+      --text: #c9d1d9;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background-color: var(--bg); color: var(--text); padding: 24px; display: flex; justify-content: center; }
+    .container { width: 100%; max-width: 720px; display: flex; flex-direction: column; gap: 20px; }
+    .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 20px; }
+    h1, h2, h3 { color: #f0f6fc; margin-bottom: 12px; }
+    .btn { background: var(--accent); color: #000; border: none; padding: 10px 16px; border-radius: 6px; font-weight: 600; cursor: pointer; transition: 0.2s; }
+    .btn:hover { opacity: 0.9; }
+    .btn-danger { background: var(--red); color: #fff; }
+    .btn-group { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+    .status-badge { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; }
+    .badge-online { background: #23863633; color: #3fb950; border: 1px solid #238636; }
+    .badge-offline { background: #da363333; color: #f85149; border: 1px solid #da3633; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-top: 10px; }
+    .stat-box { background: #0d1117; padding: 12px; border-radius: 6px; border: 1px solid var(--border); }
+    .stat-val { font-size: 20px; font-weight: bold; color: #f0f6fc; margin-top: 4px; }
+    #console { background: #000; border: 1px solid var(--border); border-radius: 6px; padding: 12px; height: 160px; overflow-y: auto; font-family: monospace; font-size: 13px; color: #58a6ff; white-space: pre-wrap; }
+    .hidden { display: none !important; }
+    .user-header { display: flex; align-items: center; justify-content: space-between; }
+    .user-info { display: flex; align-items: center; gap: 12px; }
+    .avatar { width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--border); }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <!-- Auth Section -->
+  <div class="card" id="auth-panel">
+    <h2>ECHO Hardware Gateway</h2>
+    <p style="margin-bottom: 16px;">Sign in with Google OAuth to establish secure connection to local runtime.</p>
+    <button class="btn" id="login-btn">Sign in with Google</button>
+  </div>
+
+  <!-- Dashboard (Shown after Login) -->
+  <div class="card hidden" id="dashboard-panel">
+    <div class="user-header">
+      <div class="user-info">
+        <img id="user-avatar" class="avatar" src="" alt="Avatar" />
+        <div>
+          <div id="user-name" style="font-weight: 600; color: #f0f6fc;"></div>
+          <span id="gateway-status" class="status-badge badge-offline">Backend Disconnected</span>
+        </div>
+      </div>
+      <button class="btn btn-danger" id="logout-btn">Log Out</button>
+    </div>
+
+    <!-- Telemetry Cards -->
+    <div class="grid" style="margin-top: 20px;">
+      <div class="stat-box">
+        <div>Operating Mode</div>
+        <div class="stat-val" id="mode-val">Offline Hybrid</div>
+      </div>
+      <div class="stat-box">
+        <div>Proximity Distance</div>
+        <div class="stat-val" id="distance-val">-- mm</div>
+      </div>
+      <div class="stat-box">
+        <div>Whisper Buffer</div>
+        <div class="stat-val" id="whisper-val">Idle</div>
+      </div>
+    </div>
+
+    <!-- Manual Actuation Controls -->
+    <h3 style="margin-top: 20px;">Hardware Actuation</h3>
+    <div class="btn-group">
+      <button class="btn" onclick="sendAction('LEFT')">Turn Left (45°)</button>
+      <button class="btn" onclick="sendAction('RIGHT')">Turn Right (45°)</button>
+      <button class="btn" onclick="sendAction('SPEAKING')">Trigger Happy Eyes</button>
+      <button class="btn" onclick="sendAction('LISTENING')">Reset Eyes</button>
+    </div>
+
+    <!-- Real-Time Dialogue Log -->
+    <h3 style="margin-top: 20px;">ECHO Stream Log</h3>
+    <div id="console">[ECHO Gateway Initialized] Ready for connection.</div>
+  </div>
+</div>
+
+<!-- Firebase SDK -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-app.js";
+  import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-auth.js";
+
+  // Replace with your Firebase Web project configuration
+  const firebaseConfig = {
+    apiKey: "YOUR_FIREBASE_API_KEY",
+    authDomain: "your-project-id.firebaseapp.com",
+    projectId: "your-project-id",
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const provider = new GoogleAuthProvider();
+
+  // If testing locally in your browser, leave as localhost:8000.
+  // Once deployed on GitHub Pages, use a free secure tunnel (like Cloudflare Tunnel / Ngrok) URL:
+  const API_ENDPOINT = "http://localhost:8000";
+
+  const logBox = document.getElementById("console");
+  function appendLog(msg) {
+    const timestamp = new Date().toLocaleTimeString();
+    logBox.textContent += `\n[${timestamp}]${msg}`;
+    logBox.scrollTop = logBox.scrollHeight;
+  }
+
+  // Auth Handling
+  onAuthStateChanged(auth, (user) => {
+    if (user) {
+      document.getElementById("auth-panel").classList.add("hidden");
+      document.getElementById("dashboard-panel").classList.remove("hidden");
+      document.getElementById("user-name").innerText = user.displayName;
+      document.getElementById("user-avatar").src = user.photoURL;
+      appendLog(`Authenticated as ${user.email}`); pollTelemetry(); } else { document.getElementById("auth-panel").classList.remove("hidden"); document.getElementById("dashboard-panel").classList.add("hidden"); } });  document.getElementById("login-btn").onclick = () => signInWithPopup(auth, provider); document.getElementById("logout-btn").onclick = () => signOut(auth);  // Poll Local Python FastAPI Backend async function pollTelemetry() { try { const res = await fetch(`${API_ENDPOINT}/status`);
+      const data = await res.json();
+      const badge = document.getElementById("gateway-status");
+      badge.textContent = "Online (Localhost:8000)";
+      badge.className = "status-badge badge-online";
+      document.getElementById("mode-val").textContent = data.mode || "Hybrid";
+    } catch (e) {
+      const badge = document.getElementById("gateway-status");
+      badge.textContent = "Backend Offline";
+      badge.className = "status-badge badge-offline";
+    }
+  }
+
+  // Trigger Hardware Action
+  window.sendAction = async function(cmd) {
+    appendLog(`Sending command: ${cmd}`); try { const res = await fetch(`${API_ENDPOINT}/trigger_action?action=${cmd}`, { method: "POST" }); const data = await res.json(); appendLog(`Response: ${JSON.stringify(data)}`);
+    } catch (err) {
+      appendLog(`Error sending command: ${err.message}`);
+    }
+  };
+
+  // Poll status every 5 seconds
+  setInterval(pollTelemetry, 5000);
+</script>
+
+</body>
+</html>
