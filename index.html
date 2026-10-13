@@ -5,15 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ECHO Command Center</title>
   <style>
-    :root {
-      --bg: #0d1117;
-      --card-bg: #161b22;
-      --border: #30363d;
-      --accent: #58a6ff;
-      --green: #238636;
-      --red: #da3633;
-      --text: #c9d1d9;
-    }
+    :root { --bg: #0d1117; --card-bg: #161b22; --border: #30363d; --accent: #58a6ff; --green: #238636; --red: #da3633; --text: #c9d1d9; }
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
     body { background-color: var(--bg); color: var(--text); padding: 24px; display: flex; justify-content: center; }
     .container { width: 100%; max-width: 720px; display: flex; flex-direction: column; gap: 20px; }
@@ -39,14 +31,12 @@
 <body>
 
 <div class="container">
-  <!-- Auth Section -->
   <div class="card" id="auth-panel">
     <h2>ECHO Hardware Gateway</h2>
     <p style="margin-bottom: 16px;">Sign in with Google OAuth to establish secure connection to local runtime.</p>
     <button class="btn" id="login-btn">Sign in with Google</button>
   </div>
 
-  <!-- Dashboard (Shown after Login) -->
   <div class="card hidden" id="dashboard-panel">
     <div class="user-header">
       <div class="user-info">
@@ -59,15 +49,14 @@
       <button class="btn btn-danger" id="logout-btn">Log Out</button>
     </div>
 
-    <!-- Telemetry Cards -->
     <div class="grid" style="margin-top: 20px;">
       <div class="stat-box">
         <div>Operating Mode</div>
         <div class="stat-val" id="mode-val">Offline Hybrid</div>
       </div>
       <div class="stat-box">
-        <div>Proximity Distance</div>
-        <div class="stat-val" id="distance-val">-- mm</div>
+        <div>Battery Level</div>
+        <div class="stat-val" id="battery-val">--</div>
       </div>
       <div class="stat-box">
         <div>Whisper Buffer</div>
@@ -75,7 +64,6 @@
       </div>
     </div>
 
-    <!-- Manual Actuation Controls -->
     <h3 style="margin-top: 20px;">Hardware Actuation</h3>
     <div class="btn-group">
       <button class="btn" onclick="sendAction('LEFT')">Turn Left (45°)</button>
@@ -84,13 +72,11 @@
       <button class="btn" onclick="sendAction('LISTENING')">Reset Eyes</button>
     </div>
 
-    <!-- Real-Time Dialogue Log -->
     <h3 style="margin-top: 20px;">ECHO Stream Log</h3>
     <div id="console">[ECHO Gateway Initialized] Ready for connection.</div>
   </div>
 </div>
 
-<!-- Firebase SDK (v13.0.0) -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-app.js";
   import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-auth.js";
@@ -109,7 +95,8 @@
   const auth = getAuth(app);
   const provider = new GoogleAuthProvider();
 
-  const API_ENDPOINT = "http://localhost:8000";
+  // IMPORTANT: PASTE YOUR LOCALTUNNEL URL HERE
+  const API_ENDPOINT = "https://your-localtunnel-url.loca.lt"; 
 
   const logBox = document.getElementById("console");
   function appendLog(msg) {
@@ -118,7 +105,6 @@
     logBox.scrollTop = logBox.scrollHeight;
   }
 
-  // Auth Handling
   onAuthStateChanged(auth, (user) => {
     if (user) {
       document.getElementById("auth-panel").classList.add("hidden");
@@ -136,23 +122,22 @@
   document.getElementById("login-btn").onclick = () => signInWithPopup(auth, provider);
   document.getElementById("logout-btn").onclick = () => signOut(auth);
 
-  // Poll Local Python FastAPI Backend
   async function pollTelemetry() {
     try {
       const res = await fetch(`${API_ENDPOINT}/status`);
       const data = await res.json();
       const badge = document.getElementById("gateway-status");
-      badge.textContent = "Online (Localhost:8000)";
+      badge.textContent = "Online via Tunnel";
       badge.className = "status-badge badge-online";
-      document.getElementById("mode-val").textContent = data.mode || "Hybrid";
+      document.getElementById("mode-val").textContent = data.mode;
+      document.getElementById("battery-val").textContent = data.battery;
     } catch (e) {
       const badge = document.getElementById("gateway-status");
-      badge.textContent = "Backend Offline";
+      badge.textContent = "Tunnel Offline";
       badge.className = "status-badge badge-offline";
     }
   }
 
-  // Trigger Hardware Action
   window.sendAction = async function(cmd) {
     appendLog(`Sending command: ${cmd}`);
     try {
@@ -160,7 +145,7 @@
       const data = await res.json();
       appendLog(`Response: ${JSON.stringify(data)}`);
     } catch (err) {
-      appendLog(`Error sending command: ${err.message}`);
+      appendLog(`Error sending command: Tunnel unreachable.`);
     }
   };
 
